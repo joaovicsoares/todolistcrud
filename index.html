@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Lista de Tarefas</title>
+    
+    <style>
+        /* Estilo geral da página */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        /* Container principal da aplicação */
+        .todo-container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Título */
+        h1 {
+            text-align: center;
+            color: #1c1e21;
+            margin-bottom: 20px;
+        }
+
+        /* Área de adicionar nova tarefa */
+        .add-task-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Campo de texto para nova tarefa */
+        #task-input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        #task-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        /* Botão de adicionar */
+        #add-task-btn {
+            padding: 0 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #add-task-btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* Lista de tarefas */
+        #task-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Item individual da lista */
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #dddfe2;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+        .task-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        /* Estilo da tarefa quando está concluída */
+        .task-item.completed span {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        .task-item span {
+            flex-grow: 1;
+        }
+        
+        /* Botão de deletar */
+        .delete-btn {
+            background-color: #e4e6eb;
+            color: #606770;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            visibility: hidden; /* Fica invisível por padrão */
+            opacity: 0;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+
+        .task-item:hover .delete-btn {
+            visibility: visible; /* Aparece ao passar o mouse no item */
+            opacity: 1;
+        }
+        
+        .delete-btn:hover {
+            background-color: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="todo-container">
+        <h1>Minha Lista de Tarefas</h1>
+        
+        <div class="add-task-form">
+            <input type="text" id="task-input" placeholder="O que você precisa fazer?">
+            <button id="add-task-btn">Adicionar</button>
+        </div>
+        
+        <ul id="task-list"></ul>
+    </div>
+
+    <script>
+        // Seleciona os elementos importantes da página
+        const apiUrl = 'http://localhost:3000/tasks';
+        const taskInput = document.getElementById('task-input');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskList = document.getElementById('task-list');
+
+        async function loadTasks() {
+            taskList.innerHTML = '';
+            const response = await fetch(apiUrl);
+            const tasks = await response.json();
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                li.dataset.id = task.id;
+                if (task.concluida) { // ALTERADO: "concluida"
+                    li.classList.add('completed');
+                }
+
+                const span = document.createElement('span');
+                span.textContent = task.titulo; // ALTERADO: "titulo"
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'X';
+                deleteBtn.className = 'delete-btn';
+                
+                li.appendChild(span);
+                li.appendChild(deleteBtn);
+                taskList.appendChild(li);
+            });
+        }
+
+        async function addTask() {
+            const titulo = taskInput.value.trim(); // ALTERADO: "titulo"
+            if (titulo === '') return;
+
+            await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo }) // ALTERADO: "titulo"
+            });
+            taskInput.value = '';
+            loadTasks();
+        }
+
+        async function handleListClick(event) {
+            const target = event.target;
+            const taskItem = target.closest('.task-item');
+            if (!taskItem) return;
+
+            const taskId = taskItem.dataset.id;
+            
+            if (target.classList.contains('delete-btn')) {
+                await fetch(`${apiUrl}/${taskId}`, { method: 'DELETE' });
+                loadTasks();
+            } else {
+                const isCompleted = taskItem.classList.contains('completed');
+                await fetch(`${apiUrl}/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ concluida: !isCompleted }) // ALTERADO: "concluida"
+                });
+                loadTasks();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadTasks);
+        addTaskBtn.addEventListener('click', addTask);
+        taskInput.addEventListener('keypress', (e) => e.key === 'Enter' && addTask());
+        taskList.addEventListener('click', handleListClick);
+
+        // Função para adicionar uma nova tarefa
+        // function addTask() {
+        //     const taskText = taskInput.value.trim(); // Pega o texto e remove espaços em branco
+
+        //     // Se o campo não estiver vazio, cria a tarefa
+        //     if (taskText !== '') {
+        //         // Cria o elemento <li> que representa o item da lista
+        //         const li = document.createElement('li');
+        //         li.className = 'task-item';
+
+        //         // Cria o <span> para o texto da tarefa
+        //         const span = document.createElement('span');
+        //         span.textContent = taskText;
+
+        //         // Cria o botão de deletar
+        //         const deleteBtn = document.createElement('button');
+        //         deleteBtn.textContent = 'X';
+        //         deleteBtn.className = 'delete-btn';
+
+        //         // Adiciona o texto e o botão ao item da lista
+        //         li.appendChild(span);
+        //         li.appendChild(deleteBtn);
+
+        //         // Adiciona o item à lista de tarefas
+        //         taskList.appendChild(li);
+
+        //         // Limpa o campo de texto
+        //         taskInput.value = '';
+        //         taskInput.focus(); // Coloca o cursor de volta no campo
+        //     }
+        // }
+
+        // // Função para lidar com cliques na lista (marcar como concluído ou deletar)
+        // function handleTaskListClick(event) {
+        //     const clickedElement = event.target;
+
+        //     // Verifica se o clique foi no botão de deletar
+        //     if (clickedElement.classList.contains('delete-btn')) {
+        //         const taskItem = clickedElement.parentElement; // O elemento <li>
+        //         taskList.removeChild(taskItem);
+        //     }
+        //     // Verifica se o clique foi em um item da tarefa para marcá-lo como concluído
+        //     else if (clickedElement.closest('.task-item')) {
+        //         const taskItem = clickedElement.closest('.task-item');
+        //         taskItem.classList.toggle('completed');
+        //     }
+        // }
+
+        // // Adiciona os "escutadores de eventos"
+        // addTaskBtn.addEventListener('click', addTask); // Escuta o clique no botão
+        // taskList.addEventListener('click', handleTaskListClick); // Escuta cliques na lista inteira
+        
+        // // Permite adicionar tarefa pressionando "Enter"
+        // taskInput.addEventListener('keypress', function(event) {
+        //     if (event.key === 'Enter') {
+        //         addTask();
+        //     }
+        // });
+
+    </script>
+
+</body>
+</html>
