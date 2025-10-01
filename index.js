@@ -2,6 +2,11 @@ const apiUrl = 'http://localhost:3000/tasks';
 const taskInput = document.getElementById('task-input');
 const addTaskBtn = document.getElementById('add-task-btn');
 const taskList = document.getElementById('task-list');
+const token = localStorage.getItem('token');
+
+if (!token) {
+    window.location.href = 'login.html';
+}
 
 async function loadTasks() {
     taskList.innerHTML = '';
@@ -62,6 +67,12 @@ async function handleListClick(event) {
         loadTasks();
     }
 }
+
+const logoutBtn = document.querySelector('.logoutBtn')
+logoutBtn.addEventListener('click', () => {
+    window.location.href = 'login.html'
+    localStorage.removeItem('token')
+})
 
 document.addEventListener('DOMContentLoaded', loadTasks);
 addTaskBtn.addEventListener('click', addTask);
