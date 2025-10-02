@@ -11,6 +11,24 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+const autenticarToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]
+
+    if (token == null) {
+        return res.sendStatus(401);
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, usuario) => {
+        if (err) {
+            return res.sendStatus(403);
+        }
+        req.usuario = usuario;
+        next();
+    })
+}
+
+
 app.post('/signup', async (req, res) => {
     const {nome, email, senha} = req.body;
     if (!nome || !email || !senha) {
@@ -57,16 +75,12 @@ app.post('/login', async (req, res) => {
 
 
 
-
-
-
-
-// --- ROTAS DA API PARA TAREFAS ---
+// --- ROTAS QUE PRECISAM DE AUTENTICAÇÃO ---
 
 // ROTA 1: Obter (Ler) todas as tarefas
-app.get('/tasks', async (req, res) => {
+app.get('/tasks', autenticarToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM tarefas ORDER BY id'); 
+        const result = await db.query('SELECT * FROM tarefas WHERE idusuario = $1 ORDER BY id', [req.usuario.id]); 
         res.json(result.rows);
     } catch (error) {
         console.error(error);
@@ -75,15 +89,15 @@ app.get('/tasks', async (req, res) => {
 });
 
 // ROTA 2: Adicionar (Criar) uma nova tarefa
-app.post('/tasks', async (req, res) => {
-    const { titulo } = req.body; // ALTERADO: "titulo"
+app.post('/tasks', autenticarToken, async (req, res) => {
+    const { titulo } = req.body; 
     if (!titulo) {
         return res.status(400).json({ message: 'O título é obrigatório.' });
     }
     try {
         const result = await db.query(
-            'INSERT INTO tarefas (titulo, concluida) VALUES ($1, false) RETURNING *', // ALTERADO: "tarefas", "titulo", "concluida"
-            [titulo] // ALTERADO: "titulo"
+            'INSERT INTO tarefas (titulo, concluida, idusuario) VALUES ($1, false, $2) RETURNING *', 
+            [titulo, req.usuario.id] 
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -93,13 +107,13 @@ app.post('/tasks', async (req, res) => {
 });
 
 // ROTA 3: Atualizar uma tarefa (marcar como concluída/não concluída)
-app.put('/tasks/:id', async (req, res) => {
+app.put('/tasks/:id', autenticarToken, async (req, res) => {
     const { id } = req.params;
-    const { concluida } = req.body; // ALTERADO: "concluida"
+    const { concluida } = req.body; 
     try {
         const result = await db.query(
-            'UPDATE tarefas SET concluida = $1 WHERE id = $2 RETURNING *', // ALTERADO: "tarefas", "concluida"
-            [concluida, id] // ALTERADO: "concluida"
+            'UPDATE tarefas SET concluida = $1 WHERE id = $2 RETURNING *', 
+            [concluida, id] 
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Tarefa não encontrada.' });
@@ -112,10 +126,10 @@ app.put('/tasks/:id', async (req, res) => {
 });
 
 // ROTA 4: Deletar uma tarefa
-app.delete('/tasks/:id', async (req, res) => {
+app.delete('/tasks/:id', autenticarToken, async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await db.query('DELETE FROM tarefas WHERE id = $1', [id]); // ALTERADO: "tarefas"
+        const result = await db.query('DELETE FROM tarefas WHERE id = $1', [id]); 
         if (result.rowCount === 0) {
             return res.status(404).json({ message: 'Tarefa não encontrada.' });
         }

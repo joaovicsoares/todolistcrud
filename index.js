@@ -10,38 +10,53 @@ if (!token) {
 
 async function loadTasks() {
     taskList.innerHTML = '';
-    const response = await fetch(apiUrl);
-    const tasks = await response.json();
-
-    tasks.forEach(task => {
-        const li = document.createElement('li');
-        li.className = 'task-item';
-        li.dataset.id = task.id;
-        if (task.concluida) { // ALTERADO: "concluida"
-            li.classList.add('completed');
+    const response = await fetch(apiUrl, {
+        headers: {
+            'Authorization': `Bearer ${token}`
         }
-
-        const span = document.createElement('span');
-        span.textContent = task.titulo; // ALTERADO: "titulo"
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'X';
-        deleteBtn.className = 'delete-btn';
-        
-        li.appendChild(span);
-        li.appendChild(deleteBtn);
-        taskList.appendChild(li);
     });
+
+    if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('token')
+        window.location.href = 'login.html';
+    } else {
+        const tasks = await response.json();
+        tasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = 'task-item';
+            li.dataset.id = task.id;
+            if (task.concluida) { 
+                li.classList.add('completed');
+            }
+
+            const span = document.createElement('span');
+            span.textContent = task.titulo; 
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'X';
+            deleteBtn.className = 'delete-btn';
+        
+            li.appendChild(span);
+            li.appendChild(deleteBtn);
+            taskList.appendChild(li);
+        });
+    }
+    
+
+    
 }
 
 async function addTask() {
-    const titulo = taskInput.value.trim(); // ALTERADO: "titulo"
+    const titulo = taskInput.value.trim(); 
     if (titulo === '') return;
 
     await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titulo }) // ALTERADO: "titulo"
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+         },
+        body: JSON.stringify({ titulo }) 
     });
     taskInput.value = '';
     loadTasks();
@@ -55,13 +70,19 @@ async function handleListClick(event) {
     const taskId = taskItem.dataset.id;
     
     if (target.classList.contains('delete-btn')) {
-        await fetch(`${apiUrl}/${taskId}`, { method: 'DELETE' });
+        await fetch(`${apiUrl}/${taskId}`,{ 
+            method: 'DELETE',
+            headers: {'Authorization': `Bearer ${token}`}
+        });
         loadTasks();
     } else {
         const isCompleted = taskItem.classList.contains('completed');
         await fetch(`${apiUrl}/${taskId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ concluida: !isCompleted }) // ALTERADO: "concluida"
         });
         loadTasks();
