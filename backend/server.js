@@ -20,7 +20,7 @@ app.post('/signup', async (req, res) => {
         const senhaHash = await bcrypt.hash(senha, 10);
         const resultado = await db.query(
              "INSERT INTO usuarios (nome, email, senha) VALUES ($1, $2, $3) RETURNING id, email",
-            [, nome, email, senhaHash]
+            [nome, email, senhaHash]
         );
         res.status(201).json({message:  "Usuário criado com sucesso!", usuario: resultado.rows[0]})
     } catch (error) {
@@ -31,11 +31,11 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, senha } = req.body;
     try {
-        const resultado = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+        const resultado = await db.query("SELECT * FROM usuarios WHERE email = $1", [email]);
         if (resultado.rows.length === 0) {
             return res.status(400).json({ message: "Email ou senha inválidos." });
         }
-        const usuario = result.rows[0];
+        const usuario = resultado.rows[0];
 
      
         const senhaValida = await bcrypt.compare(senha, usuario.senha);
