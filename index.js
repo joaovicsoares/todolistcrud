@@ -1,4 +1,5 @@
 const apiUrl = 'http://localhost:3000/tasks';
+const UrlLista = 'http://localhost:3000/list'
 const taskInput = document.getElementById('task-input');
 const addTaskBtn = document.getElementById('add-task-btn');
 const taskList = document.getElementById('task-list');
@@ -8,12 +9,23 @@ if (!token) {
     window.location.href = 'login.html';
 }
 
+async function criarLista() {
+    await fetch(UrlLista, {
+        method : 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({nome})
+    });
+}
+
 async function loadTasks() {
     taskList.innerHTML = '';
     const response = await fetch(apiUrl, {
         headers: {
             'Authorization': `Bearer ${token}`
-        }
+        } 
     });
 
     if (response.status === 401 || response.status === 403) {
@@ -94,6 +106,9 @@ logoutBtn.addEventListener('click', () => {
     window.location.href = 'login.html'
     localStorage.removeItem('token')
 })
+
+const novaLista = document.querySelector('.novaLista')
+novaLista.addEventListener('click', () => {})
 
 document.addEventListener('DOMContentLoaded', loadTasks);
 addTaskBtn.addEventListener('click', addTask);

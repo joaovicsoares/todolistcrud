@@ -76,7 +76,73 @@ app.post('/login', async (req, res) => {
 
 
 // --- ROTAS QUE PRECISAM DE AUTENTICAÇÃO ---
+// ROTAS DE LISTAS
 
+app.get('/list', autenticarToken, async (req, res) => {
+    try {
+        const resultado = await db.query(
+            "SELECT * FROM listas l JOIN lista_usuario lu ON l.id = lu.idLista WHERE lu.idUsuario = $1" [req.usuario.id]
+        )
+        res.json(resultado.rows)
+    }catch (error) {
+        console.error(error)
+        res.status(500).json({message: 'Erro ao buscar listas de tarefas'})
+    }
+})
+
+app.post('/list', autenticarToken, async (req, res) => {
+    const { nome } = req.body
+    if (!nome) {
+        return res.status(400).json({message: 'O nome da lista é obrigatorio'})
+    }
+    try {
+        const listaResultado = await db.query(
+            "INSERT INTO listas (nome) VALUES ($1) RETURNING id", [nome]
+        );
+        await db.query(
+            "INSERT INTO lista_usuario (idUsuario, idLista) VALUES ($1, $2)", [req.usuario.id ,listaResultado.rows[0].id]
+        );
+        res.status(201).json(listaResultado.rows[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({message: 'Erro ao criar lista'});
+    }
+})
+
+app.put('/list/', autenticarToken, async (req, res) => {
+    const {id} = req.body.id;
+    const {nome} = req.body.nome;
+    try{
+        const resultado = await db.query(
+            "UPDATE listas SET nome = $1 WHERE id = $2",[nome, id]
+        )
+        if (resultado.rowCount === 0) {
+            return res.status(404).json({message: "Lista não encontrada"})
+        }
+        res.json(resultado.rows[0])
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({message: "Erro ao atualizar Lista"})
+    }
+    
+})
+
+app.delete('/list/:id', autenticarToken, async (req, res) => {
+    const {id} = req.params
+    try {
+        const resultado = await db.query(
+            "DELETE FROM listas WHERE id = $1",[id]
+        )
+        if (resultado.rowCount === 0) {
+            return res.status(404).json({message: "lista não encontrada"})
+        }
+        res.json(resultado.rows[0])
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({message: "Erro ao deletar Lista"})
+    }
+})
+// ROTAS DE TAREFAS
 // ROTA 1: Obter (Ler) todas as tarefas
 app.get('/tasks', autenticarToken, async (req, res) => {
     try {
