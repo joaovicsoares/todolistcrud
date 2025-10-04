@@ -32,7 +32,7 @@ const autenticarToken = (req, res, next) => {
 app.post('/signup', async (req, res) => {
     const {nome, email, senha} = req.body;
     if (!nome || !email || !senha) {
-        return req.status(400).json({message: 'Todos os campos são obrigatorios.'});
+        return res.status(400).json({message: 'Todos os campos são obrigatorios.'});
     }
     try {
         const senhaHash = await bcrypt.hash(senha, 10);
@@ -81,7 +81,7 @@ app.post('/login', async (req, res) => {
 app.get('/list', autenticarToken, async (req, res) => {
     try {
         const resultado = await db.query(
-            "SELECT * FROM listas l JOIN lista_usuario lu ON l.id = lu.idLista WHERE lu.idUsuario = $1" [req.usuario.id]
+            "SELECT * FROM listas l JOIN lista_usuario lu ON l.id = lu.idLista WHERE lu.idUsuario = $1", [req.usuario.id]
         )
         res.json(resultado.rows)
     }catch (error) {
@@ -142,11 +142,40 @@ app.delete('/list/:id', autenticarToken, async (req, res) => {
         res.status(500).json({message: "Erro ao deletar Lista"})
     }
 })
+
+app.post('/list/share', autenticarToken, async (req, res) => {
+    const idLista = req.body.idLista;
+    const email = req.body.email;
+    try {
+        const resultadoUsuario = await db.query(
+            "SELECT id FROM usuarios WHERE email = $1",[email]
+        )
+        if (resultadoUsuario.rowCount === 0) {
+            return res.status(404).json({message :"Usuario não encontrado"})
+        }
+        const resultadoVerificacao = await db.query(
+            "SELECT * from lista_usuario WHERE idUsuario = $1, AND idLista = $2",[resultadoUsuario.rows[0].id, idLista]
+        )
+        if (resultadoVerificacao > 0) {
+            return res.status(409).json({message: "Lista ja esta compartilhada"})
+        }
+
+        const resultadoCompartilhar = await db.query(
+            "INSERT INTO lista_usuario (idUsuario, idLista) VALUES ($1, $2)", [resultadoUsuario.rows[0].id, idLista]
+        )
+        res.json(resultadoCompartilhar.rows[0])
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({message: "Erro ao compartilhar lista"})
+    }
+})
+
 // ROTAS DE TAREFAS
 // ROTA 1: Obter (Ler) todas as tarefas
-app.get('/tasks', autenticarToken, async (req, res) => {
+app.get('/tasks/:idLista', autenticarToken, async (req, res) => {
+    const {idLista} = req.params
     try {
-        const result = await db.query('SELECT * FROM tarefas WHERE idusuario = $1 ORDER BY id', [req.usuario.id]); 
+        const result = await db.query('SELECT * FROM tarefas WHERE idLista = $1 ORDER BY id', [idLista]); 
         res.json(result.rows);
     } catch (error) {
         console.error(error);
@@ -156,14 +185,15 @@ app.get('/tasks', autenticarToken, async (req, res) => {
 
 // ROTA 2: Adicionar (Criar) uma nova tarefa
 app.post('/tasks', autenticarToken, async (req, res) => {
-    const { titulo } = req.body; 
+    const {idLista} = req.body.idLista
+    const { titulo } = req.body.titulo; 
     if (!titulo) {
         return res.status(400).json({ message: 'O título é obrigatório.' });
     }
     try {
         const result = await db.query(
-            'INSERT INTO tarefas (titulo, concluida, idusuario) VALUES ($1, false, $2) RETURNING *', 
-            [titulo, req.usuario.id] 
+            'INSERT INTO tarefas (titulo, concluida, idLista) VALUES ($1, false, $2) RETURNING *', 
+            [titulo, idLista] 
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
